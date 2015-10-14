@@ -315,6 +315,9 @@ public class ApnsNotification {
 				dos.close();
 				boas.close();
 			} catch (IOException e) {
+			} finally {
+				dos = null;
+				boas = null;
 			}
 		}
 		return notificationBytes;

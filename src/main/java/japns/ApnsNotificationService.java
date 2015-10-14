@@ -89,13 +89,13 @@ public class ApnsNotificationService {
 	private ApnsInputMonitoringThread apnsInputMonitoringThread;
 
 	/**
-	 * 実行PUSH通知Map（Key:{@code identifier}, value:{@code ApnsNotification}オブジェクト）
+	 * 通知情報特定用Map（Key:{@code identifier}, value:{@code ApnsNotification}オブジェクト）
 	 */
-	private Map<Integer, ApnsNotification> executeApnsNotificationMapIdentifier = new HashMap<Integer, ApnsNotification>();
+	private Map<Integer, ApnsNotification> executeApnsNotificationMapIdentifier;
 	/**
-	 * 実行PUSH通知Map（Key:{@code ApnsNotification}オブジェクト, value:{@code List<ApnsNotification>内Index）
+	 * 通知情報特定用Map（Key:{@code identifier}, value:{@code List<ApnsNotification>内Index）
 	 */
-	private Map<ApnsNotification, Integer> executeIndexMapApnsNotification = new HashMap<ApnsNotification, Integer>();
+	private Map<Integer, Integer> executeIndexMapIdentifier;
 
 	/**
 	 * 製品フラグ、証明書ファイル、証明書パスワードを指定してインスタンスを生成します
@@ -164,7 +164,7 @@ public class ApnsNotificationService {
 	public synchronized ApnsResult push(List<ApnsNotification> apnsNotificationList, int threadCount) {
 		logger.info("PUSH通知（マルチスレッド送信） - 開始");
 
-		// 送信完了を待機して各スレッドの送信結果を取得
+		// 送信結果
 		ApnsResult apnsResult = new ApnsResult();
 
 		try {
@@ -193,9 +193,9 @@ public class ApnsNotificationService {
 			// シャットダウン宣言
 			service.shutdown();
 
+			// 各スレッドの終了を待機＆結果取得
 			apnsResult.setSuccess(true);
 			for (int i = 0; i < futureList.size(); i++) {
-				// 待機&結果取得
 				ApnsResult r = futureList.get(i).get();
 
 				// 1つでも異常終了があれば異常とする
@@ -234,6 +234,17 @@ public class ApnsNotificationService {
 		logger.info("PUSH通知 - 開始");
 		try {
 
+			// 通知情報特定用Mapを作る
+			executeApnsNotificationMapIdentifier = new HashMap<Integer, ApnsNotification>();
+			executeIndexMapIdentifier = new HashMap<Integer, Integer>();
+			for(int i=0; i<apnsNotificationList.size(); i++) {
+				ApnsNotification apnsNotification = apnsNotificationList.get(i);
+				// Identifierから通知情報を特定するMap
+				executeApnsNotificationMapIdentifier.put(apnsNotification.getIdentifier(), apnsNotification);
+				// IdentifierからapnsNotificationList内のIndexを特定するMap
+				executeIndexMapIdentifier.put(apnsNotification.getIdentifier(), i);
+			}
+
 			// Socketの生成
 			reconnectNotificationSocket();
 
@@ -248,13 +259,9 @@ public class ApnsNotificationService {
 					// 通知情報取り出し
 					ApnsNotification apnsNotification = apnsNotificationList.get(i);
 
-					// 実行Mapに格納
-					executeApnsNotificationMapIdentifier.put(apnsNotification.getIdentifier(), apnsNotification);
-					executeIndexMapApnsNotification.put(apnsNotification, i);
-
 					logger.trace("deviceToken:{}, payload:{}", apnsNotification.getToken(), apnsNotification.getPayload());
 
-					// バイナリデータに変換
+					// APNs送信用バイナリデータを取得
 					byte[] pushData = apnsNotification.getNotificationBytes();
 					if (pushData == null) {
 						logger.info("PUSHデータを生成できませんでした。token={}, payload={}", apnsNotification.getToken(), apnsNotification.getPayload());
@@ -270,7 +277,7 @@ public class ApnsNotificationService {
 					}
 
 					try {
-						// PUSH通知
+						// APNsに送信
 						OutputStream os = apnsNotificationSocket.getOutputStream();
 						os.write(pushData);
 						os.flush();
@@ -324,6 +331,8 @@ public class ApnsNotificationService {
 			return createApnsSendResult(apnsNotificationList, false, e);
 		} finally {
 			ApnsUtil.close(apnsNotificationSocket);
+			executeApnsNotificationMapIdentifier = null;
+			executeIndexMapIdentifier = null;
 			logger.info("PUSH通知 - 終了");
 		}
 	}
@@ -400,7 +409,7 @@ public class ApnsNotificationService {
 				// エラーとなったPUSH通知情報を取得
 				apnsNotification = executeApnsNotificationMapIdentifier.get(apnsNotificationErrorResponse.getIdentifier());
 				// エラーとなったPUSH通知情報のIndexを取得
-				int idxError = executeIndexMapApnsNotification.get(apnsNotification);
+				int idxError = executeIndexMapIdentifier.get(apnsNotificationErrorResponse.getIdentifier());
 				// リトライカウントを加算して取得
 				int retryCount = apnsNotification.getAndAddRetryCount();
 
