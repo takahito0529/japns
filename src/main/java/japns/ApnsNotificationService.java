@@ -89,11 +89,11 @@ public class ApnsNotificationService {
 	private ApnsInputMonitoringThread apnsInputMonitoringThread;
 
 	/**
-	 * 実行PUSH通知Map（Key:identifier, value:ApnsNotificationDataオブジェクト）
+	 * 実行PUSH通知Map（Key:{@code identifier}, value:{@code ApnsNotification}オブジェクト）
 	 */
 	private Map<Integer, ApnsNotification> executeApnsNotificationMapIdentifier = new HashMap<Integer, ApnsNotification>();
 	/**
-	 * 実行PUSH通知Map（Key:ApnsNotificationDataオブジェクト, value:notificationInfoList内Index）
+	 * 実行PUSH通知Map（Key:{@code ApnsNotification}オブジェクト, value:{@code List<ApnsNotification>内Index）
 	 */
 	private Map<ApnsNotification, Integer> executeIndexMapApnsNotification = new HashMap<ApnsNotification, Integer>();
 
